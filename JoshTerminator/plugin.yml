@@ -1,0 +1,9 @@
+main: com.joshterm.JoshTerminator
+name: joshterminator
+version: 1.0
+api-version: 1.16
+commands:
+ terminator:
+   usage: /terminator [add/remove]
+   aliases: ['/t']
+   description: Manages Terminator
