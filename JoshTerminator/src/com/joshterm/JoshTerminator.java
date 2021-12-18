@@ -9,16 +9,22 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.player.PlayerItemDamageEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.Location;
 import org.bukkit.Material;
 
 import java.util.Iterator;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.entity.Enderman;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.ChatColor;
 import org.bukkit.Bukkit;
@@ -36,9 +42,12 @@ public class JoshTerminator extends JavaPlugin implements Listener, CommandExecu
 {
     private Set<UUID> terminators;
     private long last;
-    
+    private boolean dead;
+    private int deadTimer;
     public JoshTerminator() {
         this.last = 0L;
+        this.dead = false;
+        this.deadTimer = 2400;
     }
     
     public void onEnable() {
@@ -82,6 +91,14 @@ public class JoshTerminator extends JavaPlugin implements Listener, CommandExecu
     private void startRunnable() {
         new BukkitRunnable() {
             public void run() {
+            	if(dead) {
+	            	deadTimer -= 200;
+	            	if(deadTimer <= 0) {
+	            		dead = false;
+	            		deadTimer = 2400;
+	            		Bukkit.broadcastMessage("The Terminator has been revived!");
+	            	}
+            	}
                 for (final UUID uuid : JoshTerminator.this.terminators) {
                     final Player terminator = Bukkit.getPlayer(uuid);
                     if (terminator == null) {
@@ -105,23 +122,20 @@ public class JoshTerminator extends JavaPlugin implements Listener, CommandExecu
                     if (nearest == null) {
                         return;
                     }
-                    if (nearestDistance <= 15000.0) {
-                    	 if(terminator.getLocation().getY() > 127) {
-                         	Location temp_location = new Location(terminator.getLocation().getWorld(), 
-                         							terminator.getLocation().getX(),
-                         							terminator.getLocation().getY() - 10,
-                         							terminator.getLocation().getZ());
-                         	
-                         	terminator.teleport(temp_location);
-                         }
-                        continue;
+                    Location nearestMatchY = nearest.getLocation();
+                    nearestMatchY.setY(terminator.getLocation().getY());
+                    nearestDistance = terminator.getLocation().distanceSquared(nearestMatchY);
+                    if (nearestDistance <= 8100.0) {
+                    	 
+                    	 continue;
                     }
-                    final Location location = terminator.getLocation().add(nearest.getLocation().toVector().subtract(terminator.getLocation().toVector()).normalize().multiply(50));
+                    final Location location = terminator.getLocation().add(nearestMatchY.toVector().subtract(terminator.getLocation().toVector()).normalize().multiply(Math.max((Math.sqrt(nearestDistance) - 90)/1.2, 10)));
+                    location.setY(nearest.getLocation().getY());
                     terminator.teleport(location);
                    
                 }
             }
-        }.runTaskTimer((Plugin)this, 0L, 200L);
+        }.runTaskTimer((Plugin)this, 0L, 50L);
     }
     
     @EventHandler
@@ -129,8 +143,41 @@ public class JoshTerminator extends JavaPlugin implements Listener, CommandExecu
         if (event.getEntity() instanceof Player) {
             final Player terminator = (Player)event.getEntity();
             if (this.terminators.contains(terminator.getUniqueId())) {
-                event.setDamage(0.0);
+            	if(this.dead) {
+            		event.setCancelled(true);
+            	}
+            	else if(terminator.getHealth() <= event.getDamage()/2 + 0.5) {
+            		terminator.setHealth(20);
+            		dead = true;
+            		event.setCancelled(true);
+            		Bukkit.broadcastMessage("The terminator was killed!");
+            	}
+            	else {
+            		if(event.getCause() == EntityDamageEvent.DamageCause.LAVA || event.getCause() == EntityDamageEvent.DamageCause.SUFFOCATION || event.getCause() == EntityDamageEvent.DamageCause.DROWNING || event.getCause() == EntityDamageEvent.DamageCause.FALL) {
+            			event.setDamage(event.getDamage()/10);
+            		}
+            		else {
+                		event.setDamage(event.getDamage()/2);
+
+            		}
+            	}
             }
+        }
+    }
+    @EventHandler
+    public void onTerminatorAttack(EntityDamageByEntityEvent event) {
+        Entity e = event.getDamager();
+        if (e instanceof Player) {
+           if(dead && terminators.contains(e.getUniqueId())) {
+        	   event.setCancelled(true);
+           }
+        }
+    }
+    @EventHandler
+    public void onEndermanDeath(EntityDeathEvent event) {
+        Entity e = event.getEntity();
+        if (e instanceof Enderman) {
+           event.getDrops().add(new ItemStack(Material.ENDER_PEARL, 1));       
         }
     }
     @EventHandler
@@ -147,6 +194,7 @@ public class JoshTerminator extends JavaPlugin implements Listener, CommandExecu
     	Inventory inv = Bukkit.createInventory(null, 9);
     	for(Player player: Bukkit.getOnlinePlayers()) {
     		if(this.terminators.contains(player.getUniqueId())) continue;
+    		if(p.equals(player)) continue;
     		ItemStack item = new ItemStack(Material.PLAYER_HEAD);
     		SkullMeta skull = (SkullMeta) item.getItemMeta();
     		skull.setOwningPlayer(player);
@@ -182,6 +230,14 @@ public class JoshTerminator extends JavaPlugin implements Listener, CommandExecu
                 event.setCancelled(true);
             }
         }
+    }
+    
+    @EventHandler
+    public void onPlayerMoveEvent(final PlayerMoveEvent event) {
+            if (this.terminators.contains(event.getPlayer().getUniqueId()) && dead) {
+                event.setCancelled(true);
+            }
+        
     }
     
     @EventHandler
