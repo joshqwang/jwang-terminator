@@ -30,6 +30,8 @@ import org.bukkit.ChatColor;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+
+import java.util.ArrayList;
 import java.util.HashSet;
 import org.bukkit.plugin.Plugin;
 import java.util.UUID;
@@ -37,7 +39,7 @@ import java.util.Set;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
-
+import java.util.Random;
 public class JoshTerminator extends JavaPlugin implements Listener, CommandExecutor
 {
     private Set<UUID> terminators;
@@ -119,7 +121,20 @@ public class JoshTerminator extends JavaPlugin implements Listener, CommandExecu
                             nearest = player;
                         }
                     }
-                    if (nearest == null) {
+                    if (nearest == null && Bukkit.getOnlinePlayers().size() > 1) {
+                    	Random rand = new Random();
+                    	Player teleportee = null;
+                    	ArrayList<Player> players = new ArrayList<Player>(Bukkit.getOnlinePlayers());
+                    	while(teleportee == null) {
+                    		teleportee = players.get(rand.nextInt(players.size()));
+                    		if(teleportee.equals(terminator)) {
+                    			teleportee = null;
+                    		}
+                    	}
+                    	terminator.teleport(teleportee);
+                    	terminator.setHealth(20);
+                		dead = true;
+                		Bukkit.broadcastMessage("The terminator jumped dimensions!");
                         return;
                     }
                     Location nearestMatchY = nearest.getLocation();
@@ -143,6 +158,12 @@ public class JoshTerminator extends JavaPlugin implements Listener, CommandExecu
         if (event.getEntity() instanceof Player) {
             final Player terminator = (Player)event.getEntity();
             if (this.terminators.contains(terminator.getUniqueId())) {
+            	Player nearest = getNearestPlayer(terminator.getLocation(), terminator, false);
+            	if(nearest != null) {
+            		if(nearest.getLocation().distanceSquared(terminator.getLocation()) > 1600) {
+            			event.setCancelled(true);
+            		}
+            	}
             	if(this.dead) {
             		event.setCancelled(true);
             	}
