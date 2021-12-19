@@ -1,6 +1,6 @@
 main: com.joshterm.JoshTerminator
 name: joshterminator
-version: 1.0
+version: 1.3
 api-version: 1.16
 commands:
  terminator:
