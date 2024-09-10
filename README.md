@@ -1,8 +1,6 @@
 # jwang-terminator
 A minecraft terminator plugin that I use to play with my friends
 
-Based on GeorgeNotFound's original plugin, and I made my own improvements on it.
-
 Remember to set the player render distance to 96 blocks before you use, and to enable flight on the server to prevent the terminator from constantly being kicked.
 
 Intended to be used with the "terminator" on kill aura and using baritone to chase players. 
